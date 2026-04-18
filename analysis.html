@@ -1,0 +1,83 @@
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Tap Log Analysis</title>
+</head>
+<body>
+    <h2>Firestore Analysis Results</h2>
+    <pre id="output">Loading...</pre>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js";
+        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyA_hy9VdrS1zvwZkpDpDx6WSFR0JaPQRC0",
+            authDomain: "clicklogs-research.firebaseapp.com",
+            projectId: "clicklogs-research",
+            storageBucket: "clicklogs-research.firebasestorage.app",
+            messagingSenderId: "1040723036498",
+            appId: "1:1040723036498:web:3208d2b22a73c58776928b"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        function avg(arr) {
+            if (!arr.length) return 0;
+            return (arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(2);
+        }
+
+        async function runAnalysis() {
+            const tapSnap = await getDocs(collection(db, "tap_logs"));
+            const sessionSnap = await getDocs(collection(db, "sessions"));
+
+            let androidDurations = [];
+            let pcDurations = [];
+            let feedbackDurations = [];
+            let nofeedbackDurations = [];
+
+            tapSnap.forEach(docSnap => {
+                const data = docSnap.data();
+                const platform = data.platform;
+                const taps = data.taps || [];
+
+                taps.forEach(t => {
+                    if (platform === "android") androidDurations.push(t.durationMs);
+                    if (platform === "pc") pcDurations.push(t.durationMs);
+
+                    if (t.interfaceType === "feedbackshown") feedbackDurations.push(t.durationMs);
+                    if (t.interfaceType === "nofeedback") nofeedbackDurations.push(t.durationMs);
+                });
+            });
+
+            let completedBoth = 0;
+            let droppedAfterFirst = 0;
+
+            sessionSnap.forEach(docSnap => {
+                const s = docSnap.data();
+                if (s.completedBoth === true) completedBoth++;
+                if (s.completedVariationCount === 1 && s.droppedOff === true) droppedAfterFirst++;
+            });
+
+            document.getElementById("output").textContent =
+`1. Mean tap duration by platform
+Android: ${avg(androidDurations)} ms
+PC: ${avg(pcDurations)} ms
+
+2. Average tap duration by interface
+feedbackshown: ${avg(feedbackDurations)} ms
+nofeedback: ${avg(nofeedbackDurations)} ms
+
+3. Session completion results
+Completed both variations: ${completedBoth}
+Dropped after first variation: ${droppedAfterFirst}`;
+        }
+
+        runAnalysis().catch(err => {
+            document.getElementById("output").textContent = "Error: " + err.message;
+            console.error(err);
+        });
+    </script>
+</body>
+</html>
