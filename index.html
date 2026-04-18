@@ -1,0 +1,168 @@
+<html>
+
+<head>
+<meta charset="utf8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="index.css">
+
+<script type="text/javascript">
+
+var totalTouchDuration = 0;
+var tapCounter=0;
+var startTap=0, endTap=0;
+var tapSessionStartTime=0;
+var tapLogsArray=[];
+
+var tapLimit = 3; // 🔥 set small for testing
+var uniqueIdentifier=0;
+var d;
+var dependentVariable="";
+var showFeedback = false;
+var interfaceVariations = 2;
+var interfaceSequence = 1;
+
+function onLoad(){
+    var el = document.getElementById('tapHere');
+    d = new Date();
+
+    showFeedback = (d.getTime()%2 ==0);
+
+    uniqueIdentifier = d.getTime() + "" + Math.floor(Math.random()*100);
+
+    ["mouseup","mousedown","touchstart","touchend"].forEach(function(te) {
+        el.addEventListener(te, tapityTap);
+    });
+}
+
+function saveDependentVariable(dVariable){
+    dependentVariable = dVariable;
+    document.getElementById("buttoncontainer").style.display = "none";
+    document.getElementById("container").style.display = "inline-block";
+}
+
+function syncToServer(){
+
+    const tapPayload = {
+        sessionId: String(uniqueIdentifier),
+        platform: dependentVariable,
+        tapCount: tapLogsArray.length,
+        taps: tapLogsArray,
+        createdAt: window.firebaseServerTimestamp()
+    };
+
+    window.firebaseAddDoc(
+        window.firebaseCollection(window.firebaseDb, "tap_logs"),
+        tapPayload
+    )
+    .then(() => {
+        console.log("Saved to Firestore");
+        document.getElementById("container").innerHTML =
+            "<h3>Data saved successfully ✔</h3>";
+    })
+    .catch((error) => {
+        console.error("Error:", error);
+    });
+}
+
+function tapityTap(tep){
+
+    d = new Date();
+    var te = tep.type;
+
+    switch(te){
+
+        case "touchstart":
+        case "mousedown":
+            startTap = d.getTime();
+        break;
+
+        case "touchend":
+        case "mouseup":
+
+            endTap = d.getTime();
+            var duration = endTap - startTap;
+
+            tapCounter++;
+
+            var tap = {
+                sequence: tapCounter,
+                start: startTap,
+                end: endTap,
+                duration: duration,
+                interface: showFeedback ? "feedbackshown" : "nofeedback"
+            };
+
+            tapLogsArray.push(tap);
+
+            if(tapCounter >= tapLimit){
+
+                interfaceSequence++;
+
+                if(interfaceSequence <= interfaceVariations){
+                    document.getElementById("continue").style.display="block";
+                    document.getElementById("tapHere").style.display="none";
+                } else {
+                    document.getElementById("tapHere").style.display="none";
+                    syncToServer(); // 🔥 Firebase save
+                }
+            }
+
+            startTap = 0;
+            endTap = 0;
+        break;
+    }
+}
+
+function startNext(){
+    tapCounter = 0;
+    tapLogsArray = [];
+    document.getElementById("tapHere").style.display="block";
+    document.getElementById("continue").style.display="none";
+    showFeedback = !showFeedback;
+}
+
+</script>
+</head>
+
+<!-- ✅ FIREBASE FULL SETUP -->
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js";
+import { getFirestore, collection, addDoc, serverTimestamp } 
+from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA_hy9VdrS1zvwZkpDpDx6WSFR0JaPQRC0",
+  authDomain: "clicklogs-research.firebaseapp.com",
+  projectId: "clicklogs-research",
+  storageBucket: "clicklogs-research.firebasestorage.app",
+  messagingSenderId: "1040723036498",
+  appId: "1:1040723036498:web:3208d2b22a73c58776928b"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+window.firebaseDb = db;
+window.firebaseCollection = collection;
+window.firebaseAddDoc = addDoc;
+window.firebaseServerTimestamp = serverTimestamp;
+
+</script>
+
+<body onLoad="onLoad()">
+
+<div>
+    <div id="buttoncontainer">
+        <button onclick="saveDependentVariable('android')">Android</button>
+        <button onclick="saveDependentVariable('pc')">PC</button>
+    </div>
+
+    <div id="container" style="display:none">
+        <button id="tapHere">Tap Here</button>
+        <button id="continue" onclick="startNext()" style="display:none">Continue</button>
+    </div>
+</div>
+
+</body>
+</html>
