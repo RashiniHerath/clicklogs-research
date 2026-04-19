@@ -24,8 +24,23 @@
         const db = getFirestore(app);
 
         function avg(arr) {
-            if (!arr.length) return 0;
-            return (arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(2);
+            const valid = arr.filter(v => Number.isFinite(v));
+            if (!valid.length) return 0;
+            return (valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(2);
+        }
+
+        function getTapDuration(t) {
+            const value =
+                t.durationMs ??
+                t.duration ??
+                ((t.endTimestamp ?? t.end) - (t.startTimestamp ?? t.start));
+
+            const num = Number(value);
+            return Number.isFinite(num) ? num : null;
+        }
+
+        function getTapInterface(t) {
+            return (t.interfaceType ?? t.interface ?? "").toString().trim().toLowerCase();
         }
 
         async function runAnalysis() {
@@ -39,15 +54,20 @@
 
             tapSnap.forEach(docSnap => {
                 const data = docSnap.data();
-                const platform = data.platform;
-                const taps = data.taps || [];
+                const platform = (data.platform || "").toString().trim().toLowerCase();
+                const taps = Array.isArray(data.taps) ? data.taps : [];
 
                 taps.forEach(t => {
-                    if (platform === "android") androidDurations.push(t.durationMs);
-                    if (platform === "pc") pcDurations.push(t.durationMs);
+                    const duration = getTapDuration(t);
+                    const interfaceName = getTapInterface(t);
 
-                    if (t.interfaceType === "feedbackshown") feedbackDurations.push(t.durationMs);
-                    if (t.interfaceType === "nofeedback") nofeedbackDurations.push(t.durationMs);
+                    if (duration !== null) {
+                        if (platform.includes("android")) androidDurations.push(duration);
+                        if (platform.includes("pc")) pcDurations.push(duration);
+
+                        if (interfaceName === "feedbackshown") feedbackDurations.push(duration);
+                        if (interfaceName === "nofeedback") nofeedbackDurations.push(duration);
+                    }
                 });
             });
 
