@@ -11,7 +11,7 @@
         var tapCounter = 0;
         var startTap = 0, endTap = 0;
 
-        var tapLimit = 3; // change to 50 later for final collection
+        var tapLimit = 3; // change to 50 later
         var uniqueIdentifier = 0;
         var dependentVariable = "";
 
@@ -27,7 +27,6 @@
             var d = new Date();
 
             showFeedback = (d.getTime() % 2 === 0);
-
             uniqueIdentifier = d.getTime() + "" + Math.floor(Math.random() * 100);
 
             ["mouseup", "mousedown", "touchstart", "touchend"].forEach(function(te) {
